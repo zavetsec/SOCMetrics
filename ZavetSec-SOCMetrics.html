@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZavetSec · SOC Metrics Console (offline, single-file)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@500;600;700&display=swap');
+:root{--bg:#0a0d10;--panel:#0d1117;--panel3:#0c1218;--green:#00ff88;--green-dim:#0a3;--cyan:#3ad7ff;--txt:#c8d1da;--muted:#6b7888;--line:#1d2530;--red:#ff4d5e;--amber:#ffb02e;--blue:#5b8cff;--violet:#b18cff;--mono:'JetBrains Mono',ui-monospace,monospace;--disp:'Rajdhani',system-ui,sans-serif;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--mono);font-size:13px;line-height:1.55;background-image:radial-gradient(circle at 15% -10%,rgba(0,255,136,.07),transparent 50%),radial-gradient(circle at 95% 0%,rgba(58,215,255,.05),transparent 45%);background-attachment:fixed;min-height:100vh}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.16) 3px);mix-blend-mode:overlay;opacity:.3}
+h1,h2,h3,h4{font-family:var(--disp);color:#fff;letter-spacing:.5px;margin:0}
+a{color:var(--green);text-decoration:none}
+button{font-family:var(--mono);cursor:pointer}
+input,select,textarea{font-family:var(--mono);background:var(--panel3);color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font-size:13px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--green-dim);box-shadow:0 0 0 2px rgba(0,255,136,.08)}
+label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin:0 0 5px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 1.6s infinite;vertical-align:middle}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:18px;padding:14px 26px;background:rgba(10,13,16,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font-family:var(--disp);font-weight:700;font-size:19px;color:#fff;letter-spacing:1px;display:flex;align-items:center;gap:10px}
+.brand span{color:var(--green)}
+.kick{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.nav button{background:transparent;border:1px solid transparent;color:var(--muted);padding:7px 13px;border-radius:6px;font-size:12px}
+.nav button:hover{color:var(--txt);border-color:var(--line)}
+.nav button.active{color:var(--green);border-color:var(--green-dim);background:rgba(0,255,136,.06)}
+.icon-btn{background:var(--panel3);border:1px solid var(--line);color:var(--muted);padding:0 12px;height:30px;border-radius:6px;font-size:11px}
+.icon-btn:hover{color:var(--green);border-color:var(--green-dim)}
+.wrap{max-width:1280px;margin:0 auto;padding:26px}
+.view{display:none}.view.active{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.section-h{display:flex;align-items:center;gap:14px;margin:0 0 4px}
+.section-h .num{font-size:13px;color:var(--green);border:1px solid var(--green-dim);padding:2px 9px;border-radius:5px;background:rgba(0,255,136,.06)}
+.section-h h2{font-size:26px}
+.section-sub{color:var(--muted);font-size:12px;margin:2px 0 22px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:18px}
+.grid{display:grid;gap:14px}
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.spacer{flex:1}
+.btn{background:var(--green);color:#04130b;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:.5px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--green);border:1px solid var(--green-dim)}
+.btn.ghost:hover{background:rgba(0,255,136,.06)}
+.btn.sm{padding:6px 11px;font-size:11px}
+.btn.danger{background:transparent;color:var(--red);border:1px solid var(--red)}
+.btn.danger:hover{background:rgba(255,77,94,.08)}
+.tag{font-size:10px;padding:3px 8px;border-radius:4px;font-weight:500;white-space:nowrap}
+.t-L1{background:rgba(91,140,255,.12);color:var(--blue);border:1px solid rgba(91,140,255,.3)}
+.t-L2{background:rgba(58,215,255,.12);color:var(--cyan);border:1px solid rgba(58,215,255,.3)}
+.t-L3{background:rgba(0,255,136,.12);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.t-SOC{background:rgba(255,176,46,.12);color:var(--amber);border:1px solid rgba(255,176,46,.3)}
+.mitre{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(177,140,255,.12);color:var(--violet);border:1px solid rgba(177,140,255,.3)}
+.sevb{font-size:9.5px;padding:2px 7px;border-radius:3px;font-weight:700}
+.sev-low{background:var(--green-dim);color:#001a0d}.sev-medium{background:var(--cyan);color:#001a22}.sev-high{background:var(--amber);color:#221500}.sev-critical{background:var(--red);color:#1a0004}
+.kpis{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;top:0;left:0;width:100%;height:2px;background:var(--green-dim);opacity:.5}
+.kpi.ok::before{background:var(--green)}.kpi.warn::before{background:var(--amber)}.kpi.crit::before{background:var(--red)}.kpi.na::before{background:var(--line)}
+.kpi .kname{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.kpi .kval{font-family:var(--disp);font-weight:700;font-size:30px;color:#fff;margin:7px 0 2px;line-height:1}
+.kpi .kval .u{font-size:13px;color:var(--muted);font-weight:500;margin-left:3px}
+.kpi .ksub{font-size:10px;color:var(--muted);margin-top:5px}
+.kpi .ksub b{color:var(--cyan);font-weight:500}
+.sev{font-size:9.5px;padding:2px 6px;border-radius:3px;font-weight:700}
+.sev-okk{background:var(--green-dim);color:#001a0d}.sev-warnn{background:var(--amber);color:#221500}.sev-critt{background:var(--red);color:#1a0004}.sev-naa{background:var(--line);color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+thead th{background:var(--panel3);color:var(--green);font-family:var(--disp);text-transform:uppercase;font-size:11px;text-align:left;padding:10px 11px;border-bottom:1px solid var(--line)}
+td{padding:8px 11px;border-bottom:1px solid var(--line)}
+tbody tr:hover{background:rgba(0,255,136,.03)}
+.mkey{color:var(--cyan)}.muted{color:var(--muted)}
+.box{border:1px solid var(--line);border-radius:9px;padding:14px 18px;margin:0 0 18px;background:var(--panel)}
+.box.info{border-left:3px solid var(--blue);background:rgba(91,140,255,.04)}
+.box.warn{border-left:3px solid var(--amber);background:rgba(255,176,46,.04)}
+.box .lbl{font-family:var(--disp);font-weight:700;font-size:12px;text-transform:uppercase;display:block;margin-bottom:5px}
+.box.info .lbl{color:var(--blue)}.box.warn .lbl{color:var(--amber)}
+.fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.fgrid.ts{grid-template-columns:repeat(4,1fr)}
+.field label{margin-bottom:4px}
+.bars .brow{display:grid;grid-template-columns:200px 1fr 50px;gap:10px;align-items:center;margin:6px 0;font-size:12px}
+.bars .btrack{height:14px;background:var(--panel3);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.bars .btrack>i{display:block;height:100%;background:linear-gradient(90deg,var(--green-dim),var(--green))}
+.bars .bn{text-align:right;color:#fff}
+.empty{color:var(--muted);text-align:center;padding:30px;font-size:12px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--green-dim);border-left:3px solid var(--green);color:#fff;padding:12px 20px;border-radius:8px;z-index:500;font-size:12px;opacity:0;transition:.3s}
+.toast.show{opacity:1;bottom:34px}.toast.err{border-color:var(--red);border-left-color:var(--red)}
+.hint{font-size:10.5px;color:var(--muted);margin-top:6px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.flags{display:flex;gap:18px;align-items:center;margin-top:4px}
+.flags label{display:flex;align-items:center;gap:7px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--txt);margin:0}
+.flags input{width:auto}
+@media(max-width:900px){.cols{grid-template-columns:1fr}.fgrid.ts{grid-template-columns:repeat(2,1fr)}.nav{order:3;width:100%;margin-left:0}.topbar{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span>ZavetSec&nbsp;<span>SOC&nbsp;Metrics</span></div>
+  <div class="kick">ZAVETSEC · INCIDENT-DRIVEN · OFFLINE</div>
+  <div class="nav" id="nav"></div>
+  <button class="icon-btn" id="backupBtn" title="Экспорт/импорт">⤓ Бэкап</button>
+</div>
+
+<div class="wrap">
+  <div class="box warn" style="margin-bottom:22px"><span class="lbl">Локально и приватно</span>Все инциденты хранятся только в вашем браузере (IndexedDB) и никуда не отправляются. Каталог типов и пороги SLA — <b>иллюстративные</b>, под свой процесс их правят на вкладках «Типы / MITRE» и «Пороги SLA». Делайте <b>Экспорт JSON</b> (кнопка «Бэкап») для резерва и переноса.</div>
+
+  <!-- DASHBOARD -->
+  <div class="view active" data-view="dash">
+    <div class="section-h"><span class="num">01</span><h2>Дашборд</h2></div>
+    <div class="section-sub">Всё считается из инцидентов: средние, медиана, p90, SLA, разбивки</div>
+    <div class="bar">
+      <div style="min-width:150px"><label>Группировка</label><select id="dashGran"><option value="all">Всё время</option><option value="week">Неделя</option><option value="month">Месяц</option><option value="quarter">Квартал</option></select></div>
+      <div style="min-width:150px"><label>Период</label><select id="dashPeriod"></select></div>
+      <div style="min-width:150px"><label>Тип</label><select id="dashType"></select></div>
+      <div style="min-width:140px"><label>Severity</label><select id="dashSev"><option value="all">Все</option><option value="critical">Критич.</option><option value="high">Высокая</option><option value="medium">Средняя</option><option value="low">Низкая</option></select></div>
+      <div class="spacer"></div>
+    </div>
+    <div id="dashEmpty" class="box info" style="display:none"><span class="lbl">Нет инцидентов</span>Добавьте инциденты во вкладке «Инциденты».</div>
+    <div id="dashWrap">
+      <h3 style="font-size:15px;color:var(--green);margin:6px 0 10px">Объём и исход</h3>
+      <div id="kpiVol" class="grid kpis"></div>
+      <h3 style="font-size:15px;color:var(--green);margin:22px 0 10px">Время (медиана · среднее · p90)</h3>
+      <div id="kpiTime" class="grid kpis"></div>
+      <div class="cols" style="margin-top:22px">
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:12px">По типам инцидентов</h3><div id="byType" class="bars"></div></div>
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:12px">По технике MITRE ATT&CK</h3><div id="byMitre" class="bars"></div></div>
+      </div>
+      <div class="panel"><h3 style="font-size:15px;margin-bottom:12px">По severity</h3><div id="bySev" class="bars"></div></div>
+    </div>
+  </div>
+
+  <!-- INCIDENTS -->
+  <div class="view" data-view="inc">
+    <div class="section-h"><span class="num">02</span><h2>Инциденты</h2></div>
+    <div class="section-sub">Внесите факты — система посчитает метрики сама</div>
+    <div class="panel">
+      <h3 id="incFormTitle" style="font-size:16px;color:var(--green);margin-bottom:14px">Новый инцидент</h3>
+      <div class="fgrid">
+        <div class="field"><label>Тип инцидента</label><select id="fType"></select></div>
+        <div class="field"><label>Severity</label><select id="fSev"><option value="low">Низкая</option><option value="medium">Средняя</option><option value="high">Высокая</option><option value="critical">Критическая</option></select></div>
+        <div class="field"><label>Источник обнаружения</label><select id="fSource"><option value="own">Свой детект (SIEM/EDR)</option><option value="user">Сообщение пользователя</option><option value="external">Внешнее уведомление</option><option value="hunt">Threat hunting</option></select></div>
+        <div class="field"><label>Вердикт</label><select id="fVerdict"><option value="unconfirmed">Не подтверждён</option><option value="tp">TP — подтверждён</option><option value="fp">FP — ложное</option></select></div>
+      </div>
+      <div id="fMitre" style="margin:10px 0 14px;font-size:12px;color:var(--muted)"></div>
+      <label style="margin-bottom:8px">Отметки времени <span style="text-transform:none;letter-spacing:0">(обязателен только «Обнаружен»; остальное — по мере прохождения)</span></label>
+      <div class="fgrid ts">
+        <div class="field"><label>Компрометация (для MTTD)</label><input type="datetime-local" id="ts_compromise"></div>
+        <div class="field"><label>Обнаружен *</label><input type="datetime-local" id="ts_detected"></div>
+        <div class="field"><label>Взят в работу (L1)</label><input type="datetime-local" id="ts_acknowledged"></div>
+        <div class="field"><label>Эскалирован (→L2)</label><input type="datetime-local" id="ts_escalated"></div>
+        <div class="field"><label>Хост изолирован</label><input type="datetime-local" id="ts_isolated"></div>
+        <div class="field"><label>Триаж готов</label><input type="datetime-local" id="ts_triage"></div>
+        <div class="field"><label>Отчёт/акт готов</label><input type="datetime-local" id="ts_report"></div>
+        <div class="field"><label>Заключён (L3)</label><input type="datetime-local" id="ts_closed"></div>
+      </div>
+      <div class="flags" style="margin-top:14px">
+        <label><input type="checkbox" id="fReopened"> Возвращён/переоткрыт</label>
+        <label><input type="checkbox" id="fRca"> Root cause найден</label>
+      </div>
+      <div class="field" style="margin-top:14px"><label>Примечание</label><input id="fNote" placeholder="хост, учётка, краткое описание…"></div>
+      <div class="bar" style="margin:16px 0 0"><button class="btn" id="saveInc">Сохранить инцидент</button><button class="btn ghost sm" id="resetInc">Очистить форму</button><span id="editingId" class="hint" style="margin:0"></span></div>
+    </div>
+    <div class="bar"><h3 style="font-size:15px;color:var(--green)">Журнал инцидентов</h3><div class="spacer"></div><span class="hint" id="incCount" style="margin:0"></span></div>
+    <table><thead><tr><th>Обнаружен</th><th>Тип</th><th>MITRE</th><th>Sev</th><th>Источник</th><th>Вердикт</th><th>MTTA</th><th>MTTR</th><th>Флаги</th><th style="width:80px"></th></tr></thead><tbody id="incBody"></tbody></table>
+  </div>
+
+  <!-- TYPES -->
+  <div class="view" data-view="types">
+    <div class="section-h"><span class="num">03</span><h2>Типы инцидентов и MITRE</h2></div>
+    <div class="section-sub">Каждый тип привязан к технике ATT&CK · можно править</div>
+    <div class="bar"><button class="btn" id="addType">+ Добавить тип</button><button class="btn ghost sm" id="resetTypes">Сбросить к умолчаниям</button><div class="spacer"></div></div>
+    <table><thead><tr><th>Тип</th><th>MITRE ID</th><th>Техника</th><th>Severity по умолч.</th><th style="width:120px"></th></tr></thead><tbody id="typesBody"></tbody></table>
+  </div>
+
+  <!-- SLA -->
+  <div class="view" data-view="sla">
+    <div class="section-h"><span class="num">04</span><h2>Пороги SLA</h2></div>
+    <div class="section-sub">Система сама помечает нарушения SLA из времён и этих порогов (в минутах)</div>
+    <table><thead><tr><th>Этап</th><th>Критическая</th><th>Высокая</th><th>Средняя</th><th>Низкая</th></tr></thead><tbody id="slaBody"></tbody></table>
+    <div class="bar" style="margin-top:14px"><button class="btn" id="saveSla">Сохранить пороги</button><button class="btn ghost sm" id="resetSla">Сбросить</button></div>
+    <div class="hint">Взятие в работу — порог на MTTA (обнаружен → взят). Изоляция — порог на «обнаружен → изолирован».</div>
+  </div>
+
+  <!-- DATA -->
+  <div class="view" data-view="data">
+    <div class="section-h"><span class="num">05</span><h2>Данные</h2></div>
+    <div class="section-sub">Экспорт инцидентов со всеми вычисленными длительностями</div>
+    <div class="bar"><button class="btn ghost sm" id="expJson">Экспорт JSON</button><button class="btn ghost sm" id="expCsv">Экспорт CSV</button><div class="spacer"></div></div>
+    <div class="box info"><span class="lbl">CSV</span>Содержит сырьё (отметки времени, тип, MITRE, вердикт) и посчитанные длительности по этапам в минутах — готово для сводных таблиц и внешнего анализа.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept="application/json" style="display:none">
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const gid=()=>'i'+Math.random().toString(36).slice(2,10);
+function toast(m,err){const t=$('#toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2800);}
+
+/* ===== дефолтный каталог типов → MITRE ===== */
+const DEFAULT_TYPES=[
+ {key:'phishing',name:'Фишинг',mitre:'T1566',mitre_name:'Phishing',severity:'medium'},
+ {key:'malware',name:'Вредоносное ПО (детект EDR/AV)',mitre:'T1204.002',mitre_name:'User Execution: Malicious File',severity:'high'},
+ {key:'suspicious_auth',name:'Подозрительная аутентификация',mitre:'T1078',mitre_name:'Valid Accounts',severity:'medium'},
+ {key:'bruteforce',name:'Перебор пароля / password spraying',mitre:'T1110',mitre_name:'Brute Force',severity:'medium'},
+ {key:'lateral_movement',name:'Боковое перемещение',mitre:'T1021',mitre_name:'Remote Services',severity:'high'},
+ {key:'cred_dumping',name:'Сброс учётных данных',mitre:'T1003',mitre_name:'OS Credential Dumping',severity:'high'},
+ {key:'priv_esc',name:'Повышение привилегий',mitre:'T1068',mitre_name:'Exploitation for Privilege Escalation',severity:'high'},
+ {key:'exfiltration',name:'Эксфильтрация данных',mitre:'T1041',mitre_name:'Exfiltration Over C2 Channel',severity:'high'},
+ {key:'c2',name:'C2 / сетевые маяки',mitre:'T1071',mitre_name:'Application Layer Protocol',severity:'high'},
+ {key:'web_attack',name:'Веб-атака',mitre:'T1190',mitre_name:'Exploit Public-Facing Application',severity:'high'},
+ {key:'dos',name:'Отказ в обслуживании (DoS/DDoS)',mitre:'T1498',mitre_name:'Network Denial of Service',severity:'high'},
+ {key:'defense_evasion',name:'Обход средств защиты',mitre:'T1562.001',mitre_name:'Impair Defenses: Disable or Modify Tools',severity:'high'},
+ {key:'ransomware',name:'Программа-вымогатель',mitre:'T1486',mitre_name:'Data Encrypted for Impact',severity:'critical'},
+ {key:'suspicious_script',name:'Подозрительный скрипт / PowerShell',mitre:'T1059.001',mitre_name:'Command and Scripting Interpreter: PowerShell',severity:'medium'},
+];
+const CATALOG_VERSION=1;
+const DEFAULT_SLA={
+ ack:{critical:15,high:30,medium:60,low:240},
+ isolate:{critical:60,high:240,medium:720,low:1440},
+};
+const SEV_RU={low:'Низкая',medium:'Средняя',high:'Высокая',critical:'Критическая'};
+const SRC_RU={own:'Свой детект',user:'Пользователь',external:'Внешнее',hunt:'Hunting'};
+const VER_RU={tp:'TP',fp:'FP',unconfirmed:'—'};
+
+/* time-metric descriptors: разница to-from (минуты) */
+const TIME_METRICS=[
+ {key:'mttd',name:'MTTD (до обнаружения)',from:'compromise',to:'detected',line:'SOC'},
+ {key:'mtta',name:'MTTA (реакция L1)',from:'detected',to:'acknowledged',line:'L1'},
+ {key:'tt_esc',name:'До эскалации',from:'acknowledged',to:'escalated',line:'L1'},
+ {key:'tt_isolate',name:'До изоляции хоста',from:'detected',to:'isolated',line:'L2'},
+ {key:'tt_triage',name:'Триаж (сбор+анализ)',from:'escalated',to:'triage',line:'L2'},
+ {key:'tt_report',name:'Срок отчёта',from:'triage',to:'report',line:'L2'},
+ {key:'tt_l3',name:'Заключение L3',from:'report',to:'closed',line:'L3'},
+ {key:'mttr',name:'MTTR (полный цикл)',from:'detected',to:'closed',line:'SOC'},
+];
+/* ratio targets для подсветки */
+const RATIO_TARGETS={sla_ack:{dir:'up',t:95},sla_isolate:{dir:'up',t:90},tpr:{dir:null},fp:{dir:null},reopen:{dir:'down',t:10},rca:{dir:'up',t:90},own:{dir:'up',t:80}};
+
+/* ===== IndexedDB ===== */
+const DBN='zavetsec_socmetrics';let _db=null;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DBN,1);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains('incidents'))d.createObjectStore('incidents',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('types'))d.createObjectStore('types',{keyPath:'key'});
+    if(!d.objectStoreNames.contains('settings'))d.createObjectStore('settings',{keyPath:'key'});};
+  r.onsuccess=()=>{_db=r.result;res(_db);};r.onerror=()=>rej(r.error);});}
+function store(n,m){return _db.transaction(n,m).objectStore(n);}
+function idbAll(n){return new Promise((res,rej)=>{const r=store(n,'readonly').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function idbGet(n,k){return new Promise((res,rej)=>{const r=store(n,'readonly').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+function idbPut(n,v){return new Promise((res,rej)=>{const r=store(n,'readwrite').put(v);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+function idbDel(n,k){return new Promise((res,rej)=>{const r=store(n,'readwrite').delete(k);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+function idbClear(n){return new Promise((res,rej)=>{const r=store(n,'readwrite').clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+
+/* ===== state ===== */
+let STATE={incidents:[],types:[],sla:DEFAULT_SLA};
+let TYPE_BY={};
+let editing=null;
+const NAV=[['dash','Дашборд'],['inc','Инциденты'],['types','Типы / MITRE'],['sla','Пороги SLA'],['data','Данные']];
+
+async function seedIfEmpty(){
+  const t=await idbAll('types');
+  if(!t.length){for(const x of DEFAULT_TYPES)await idbPut('types',x);}
+  // одноразовая миграция: добавить новые дефолтные типы, не трогая существующие/правки
+  const cv=await idbGet('settings','catalog_version');
+  if(!cv||cv.value<CATALOG_VERSION){
+    const have=(await idbAll('types')).reduce((a,x)=>(a[x.key]=1,a),{});
+    for(const x of DEFAULT_TYPES){if(!have[x.key])await idbPut('types',x);}
+    await idbPut('settings',{key:'catalog_version',value:CATALOG_VERSION});
+  }
+  const s=await idbGet('settings','sla');
+  if(!s)await idbPut('settings',{key:'sla',value:DEFAULT_SLA});
+}
+async function refresh(){
+  STATE.incidents=await idbAll('incidents');
+  STATE.types=(await idbAll('types')).sort((a,b)=>a.name.localeCompare(b.name));
+  const s=await idbGet('settings','sla');STATE.sla=s?s.value:DEFAULT_SLA;
+  TYPE_BY={};STATE.types.forEach(t=>TYPE_BY[t.key]=t);
+}
+
+/* ===== расчёты ===== */
+function diffMin(from,to){if(!from||!to)return null;const d=(new Date(to)-new Date(from))/60000;return d>=0?d:null;}
+function stats(arr){const a=arr.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y);const n=a.length;if(!n)return null;
+  const mean=a.reduce((s,x)=>s+x,0)/n;const med=n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2;
+  const p90=a[Math.min(n-1,Math.ceil(0.9*n)-1)];return{n,mean,med,p90};}
+function fmtMin(m){if(m==null)return'—';if(m<90)return Math.round(m)+' мин';if(m<2880)return(m/60).toFixed(1)+' ч';return(m/1440).toFixed(1)+' дн';}
+function isoWeek(dt){const d=new Date(dt);const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dn);const ys=new Date(Date.UTC(t.getUTCFullYear(),0,1));const w=Math.ceil((((t-ys)/86400000)+1)/7);return t.getUTCFullYear()+'-W'+String(w).padStart(2,'0');}
+function periodOf(inc,gran){if(!inc.ts||!inc.ts.detected)return'—';const d=new Date(inc.ts.detected);
+  if(gran==='week')return isoWeek(inc.ts.detected);
+  if(gran==='month')return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  if(gran==='quarter')return d.getFullYear()+'-Q'+(Math.floor(d.getMonth()/3)+1);
+  return'all';}
+function filtered(){const gran=$('#dashGran').value,per=$('#dashPeriod').value,ty=$('#dashType').value,sv=$('#dashSev').value;
+  return STATE.incidents.filter(i=>{
+    if(gran!=='all'&&per&&per!=='all'&&periodOf(i,gran)!==per)return false;
+    if(ty!=='all'&&i.type!==ty)return false;
+    if(sv!=='all'&&i.severity!==sv)return false;return true;});}
+
+/* ===== boot ===== */
+(async()=>{await openDB();await seedIfEmpty();await refresh();buildNav();go('dash');})();
+function buildNav(){$('#nav').innerHTML=NAV.map((n,i)=>`<button data-go="${n[0]}" class="${i===0?'active':''}">${n[1]}</button>`).join('');
+  $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.go));}
+function go(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.dataset.view===v));
+  $('#nav').querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.go===v));
+  ({dash:renderDash,inc:renderInc,types:renderTypes,sla:renderSla,data:()=>{}}[v]||(()=>{}))();}
+
+/* ===== dashboard ===== */
+function fillDashControls(){
+  const gran=$('#dashGran').value;
+  const tsel=$('#dashType');const prevTy=tsel.value;
+  tsel.innerHTML='<option value="all">Все</option>'+STATE.types.map(t=>`<option value="${t.key}">${esc(t.name)}</option>`).join('');
+  if(prevTy)tsel.value=prevTy;
+  const psel=$('#dashPeriod');
+  if(gran==='all'){psel.innerHTML='<option value="all">—</option>';psel.disabled=true;return;}
+  psel.disabled=false;
+  const ps=[...new Set(STATE.incidents.map(i=>periodOf(i,gran)).filter(p=>p!=='—'))].sort().reverse();
+  const cur=psel.value;
+  psel.innerHTML='<option value="all">Все</option>'+ps.map(p=>`<option ${p===cur?'selected':''}>${p}</option>`).join('');
+}
+function ratioCard(name,val,tk,extra){let st='na';if(val!=null&&RATIO_TARGETS[tk]&&RATIO_TARGETS[tk].dir){const c=RATIO_TARGETS[tk];st=c.dir==='up'?(val>=c.t?'ok':val>=c.t*.9?'warn':'crit'):(val<=c.t?'ok':val<=c.t*1.2?'warn':'crit');}
+  const stt={ok:'sev-okk',warn:'sev-warnn',crit:'sev-critt',na:'sev-naa'}[st],lbl={ok:'НОРМА',warn:'ВНИМ.',crit:'НИЗКО',na:'—'}[st];
+  return `<div class="kpi ${st}"><div class="kname"><span>${esc(name)}</span></div><div class="kval">${val==null?'—':Math.round(val)}<span class="u">${val==null?'':'%'}</span></div><div class="ksub"><span class="sev ${stt}">${lbl}</span> ${extra||''}</div></div>`;}
+function countCard(name,val,sub){return `<div class="kpi"><div class="kname"><span>${esc(name)}</span></div><div class="kval">${val}</div><div class="ksub">${sub||''}</div></div>`;}
+function renderDash(){
+  fillDashControls();
+  const inc=filtered();
+  if(!STATE.incidents.length){$('#dashEmpty').style.display='block';$('#dashWrap').style.display='none';return;}
+  $('#dashEmpty').style.display='none';$('#dashWrap').style.display='block';
+  const n=inc.length;
+  const closed=inc.filter(i=>i.ts&&i.ts.closed);
+  const tp=inc.filter(i=>i.verdict==='tp').length,fp=inc.filter(i=>i.verdict==='fp').length;
+  const confirmed=tp+fp;
+  const reopened=inc.filter(i=>i.reopened).length;
+  const rca=inc.filter(i=>i.rca).length;
+  const own=inc.filter(i=>i.source==='own').length;
+  // SLA
+  const ackArr=inc.map(i=>({m:diffMin(i.ts&&i.ts.detected,i.ts&&i.ts.acknowledged),sev:i.severity})).filter(x=>x.m!=null);
+  const ackOk=ackArr.filter(x=>x.m<=STATE.sla.ack[x.sev]).length;
+  const isoArr=inc.map(i=>({m:diffMin(i.ts&&i.ts.detected,i.ts&&i.ts.isolated),sev:i.severity})).filter(x=>x.m!=null);
+  const isoOk=isoArr.filter(x=>x.m<=STATE.sla.isolate[x.sev]).length;
+
+  $('#kpiVol').innerHTML=[
+    countCard('Инцидентов',n,`закрыто ${closed.length}`),
+    ratioCard('Поймано своими детектами',n?100*own/n:null,'own',`<b>${own}</b>/${n}`),
+    ratioCard('True Positive Rate',confirmed?100*tp/confirmed:null,'tpr',`TP <b>${tp}</b> · FP ${fp}`),
+    ratioCard('FP rate',n?100*fp/n:null,'fp',`<b>${fp}</b>/${n}`),
+    ratioCard('Возвращено на доработку',closed.length?100*reopened/closed.length:null,'reopen',`<b>${reopened}</b>/${closed.length}`),
+    ratioCard('Root cause найден',closed.length?100*rca/closed.length:null,'rca',`<b>${rca}</b>/${closed.length}`),
+    ratioCard('SLA взятия в работу',ackArr.length?100*ackOk/ackArr.length:null,'sla_ack',`<b>${ackOk}</b>/${ackArr.length}`),
+    ratioCard('SLA изоляции',isoArr.length?100*isoOk/isoArr.length:null,'sla_isolate',`<b>${isoOk}</b>/${isoArr.length}`),
+  ].join('');
+
+  $('#kpiTime').innerHTML=TIME_METRICS.map(tm=>{const s=stats(inc.map(i=>diffMin(i.ts&&i.ts[tm.from],i.ts&&i.ts[tm.to])));
+    return `<div class="kpi"><div class="kname"><span>${esc(tm.name)}</span><span class="tag t-${tm.line}">${tm.line}</span></div>
+      <div class="kval">${s?fmtMin(s.med):'—'}</div>
+      <div class="ksub">${s?`сред <b>${fmtMin(s.mean)}</b> · p90 <b>${fmtMin(s.p90)}</b> · n ${s.n}`:'нет данных'}</div></div>`;}).join('');
+
+  // breakdowns
+  const byT={};inc.forEach(i=>byT[i.type]=(byT[i.type]||0)+1);
+  $('#byType').innerHTML=barRows(Object.entries(byT).map(([k,v])=>[TYPE_BY[k]?TYPE_BY[k].name:k,v]));
+  const byM={};inc.forEach(i=>{const t=TYPE_BY[i.type];const lab=t?t.mitre+' '+t.mitre_name:'—';byM[lab]=(byM[lab]||0)+1;});
+  $('#byMitre').innerHTML=barRows(Object.entries(byM).map(([k,v])=>[k,v]),true);
+  const order=['critical','high','medium','low'],byS={};inc.forEach(i=>byS[i.severity]=(byS[i.severity]||0)+1);
+  $('#bySev').innerHTML=barRows(order.filter(s=>byS[s]).map(s=>[SEV_RU[s],byS[s]]));
+}
+function barRows(pairs,mitre){if(!pairs.length)return'<div class="empty">Нет данных</div>';
+  const max=Math.max(...pairs.map(p=>p[1]));pairs.sort((a,b)=>b[1]-a[1]);
+  return pairs.map(([name,v])=>`<div class="brow"><div>${mitre?'<span class="mitre">'+esc(name)+'</span>':esc(name)}</div><div class="btrack"><i style="width:${Math.round(100*v/max)}%"></i></div><div class="bn">${v}</div></div>`).join('');}
+['dashGran','dashPeriod','dashType','dashSev'].forEach(id=>$('#'+id).onchange=renderDash);
+
+/* ===== incidents ===== */
+function renderInc(){
+  const fT=$('#fType');const prevT=fT.value;
+  fT.innerHTML=STATE.types.map(t=>`<option value="${t.key}">${esc(t.name)}</option>`).join('');
+  if(prevT&&STATE.types.some(t=>t.key===prevT))fT.value=prevT;
+  fT.onchange=onTypeChange;onTypeChange();
+  const rows=STATE.incidents.slice().sort((a,b)=>String((b.ts&&b.ts.detected)||'').localeCompare(String((a.ts&&a.ts.detected)||'')));
+  $('#incCount').textContent=rows.length+' инц.';
+  $('#incBody').innerHTML=rows.map(i=>{const t=TYPE_BY[i.type]||{},mtta=diffMin(i.ts&&i.ts.detected,i.ts&&i.ts.acknowledged),mttr=diffMin(i.ts&&i.ts.detected,i.ts&&i.ts.closed);
+    const flags=[i.reopened?'↺':'',i.rca?'RCA':''].filter(Boolean).join(' ');
+    return `<tr><td>${esc((i.ts&&i.ts.detected||'').replace('T',' '))}</td><td>${esc(t.name||i.type)}</td>
+      <td><span class="mitre">${esc(t.mitre||'?')}</span></td><td><span class="sevb sev-${i.severity}">${SEV_RU[i.severity]||i.severity}</span></td>
+      <td class="muted">${SRC_RU[i.source]||i.source}</td><td>${VER_RU[i.verdict]||i.verdict}</td>
+      <td>${fmtMin(mtta)}</td><td>${fmtMin(mttr)}</td><td class="muted">${flags}</td>
+      <td><button class="btn ghost sm" data-e="${i.id}">ред.</button> <button class="btn danger sm" data-d="${i.id}">✕</button></td></tr>`;}).join('')||'<tr><td colspan="10" class="empty">Журнал пуст</td></tr>';
+  $('#incBody').querySelectorAll('[data-e]').forEach(x=>x.onclick=()=>loadInc(x.dataset.e));
+  $('#incBody').querySelectorAll('[data-d]').forEach(x=>x.onclick=async()=>{if(!confirm('Удалить инцидент?'))return;await idbDel('incidents',x.dataset.d);await refresh();renderInc();toast('Удалён');});
+}
+function onTypeChange(){const t=TYPE_BY[$('#fType').value];if(!t)return;$('#fMitre').innerHTML=`Техника: <span class="mitre">${esc(t.mitre)}</span> ${esc(t.mitre_name)} · severity по умолчанию: <span class="sevb sev-${t.severity}">${SEV_RU[t.severity]}</span>`;
+  if(!editing)$('#fSev').value=t.severity;}
+const TS=['compromise','detected','acknowledged','escalated','isolated','triage','report','closed'];
+function resetForm(){editing=null;$('#incFormTitle').textContent='Новый инцидент';$('#editingId').textContent='';
+  $('#fSource').value='own';$('#fVerdict').value='unconfirmed';$('#fReopened').checked=false;$('#fRca').checked=false;$('#fNote').value='';
+  TS.forEach(k=>$('#ts_'+k).value='');if(STATE.types[0])$('#fType').value=STATE.types[0].key;onTypeChange();}
+$('#resetInc').onclick=resetForm;
+function loadInc(id){const i=STATE.incidents.find(x=>x.id===id);if(!i)return;editing=id;
+  $('#incFormTitle').textContent='Редактирование инцидента';$('#editingId').textContent='id '+id;
+  $('#fType').value=i.type;$('#fSev').value=i.severity;$('#fSource').value=i.source;$('#fVerdict').value=i.verdict;
+  $('#fReopened').checked=!!i.reopened;$('#fRca').checked=!!i.rca;$('#fNote').value=i.note||'';
+  TS.forEach(k=>$('#ts_'+k).value=(i.ts&&i.ts[k])||'');onTypeChange();go('inc');window.scrollTo(0,0);}
+$('#saveInc').onclick=async()=>{
+  const detected=$('#ts_detected').value;if(!detected)return toast('Укажите время обнаружения',1);
+  const ts={};TS.forEach(k=>{const v=$('#ts_'+k).value;if(v)ts[k]=v;});
+  // проверка хронологии для заполненных
+  const order=['compromise','detected','acknowledged','escalated','isolated','triage','report','closed'];
+  let prev=null,prevk=null;
+  for(const k of order){if(ts[k]){if(prev&&new Date(ts[k])<new Date(prev)){return toast(`«${k}» раньше «${prevk}» — проверьте время`,1);}prev=ts[k];prevk=k;}}
+  const rec={id:editing||gid(),type:$('#fType').value,severity:$('#fSev').value,source:$('#fSource').value,verdict:$('#fVerdict').value,
+    reopened:$('#fReopened').checked,rca:$('#fRca').checked,note:$('#fNote').value.trim(),ts};
+  await idbPut('incidents',rec);await refresh();const wasEdit=!!editing;resetForm();renderInc();toast(wasEdit?'Обновлён':'Инцидент добавлен');
+};
+
+/* ===== types ===== */
+function renderTypes(){$('#typesBody').innerHTML=STATE.types.map(t=>`<tr><td style="color:#fff">${esc(t.name)}</td>
+  <td><span class="mitre">${esc(t.mitre)}</span></td><td class="muted">${esc(t.mitre_name)}</td>
+  <td><span class="sevb sev-${t.severity}">${SEV_RU[t.severity]}</span></td>
+  <td><button class="btn ghost sm" data-e="${t.key}">ред.</button> <button class="btn danger sm" data-d="${t.key}">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">Нет типов</td></tr>';
+  $('#typesBody').querySelectorAll('[data-e]').forEach(x=>x.onclick=()=>typeModal(TYPE_BY[x.dataset.e]));
+  $('#typesBody').querySelectorAll('[data-d]').forEach(x=>x.onclick=async()=>{if(!confirm('Удалить тип? Инциденты этого типа останутся, но без названия.'))return;await idbDel('types',x.dataset.d);await refresh();renderTypes();toast('Удалён');});}
+$('#addType').onclick=()=>typeModal(null);
+$('#resetTypes').onclick=async()=>{if(!confirm('Сбросить каталог типов к умолчаниям? Текущие типы будут заменены.'))return;await idbClear('types');for(const x of DEFAULT_TYPES)await idbPut('types',x);await refresh();renderTypes();toast('Сброшено');};
+function typeModal(t){const ed=!!t;const m=document.createElement('div');m.className='box';m.style.position='fixed';m.style.inset='0';m.style.zIndex=200;m.style.display='flex';m.style.alignItems='center';m.style.justifyContent='center';m.style.background='rgba(4,7,10,.78)';m.style.backdropFilter='blur(4px)';m.style.border='none';m.style.borderRadius='0';
+  m.innerHTML=`<div style="background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--green);border-radius:12px;padding:24px;width:100%;max-width:460px">
+    <h3 style="font-size:20px;margin-bottom:14px">${ed?'Редактировать':'Новый'} тип</h3>
+    <div style="margin-bottom:12px"><label>Название</label><input id="tName" value="${ed?esc(t.name):''}"></div>
+    <div class="fgrid" style="margin-bottom:12px"><div><label>MITRE ID</label><input id="tMitre" value="${ed?esc(t.mitre):'T'}"></div><div><label>Severity</label><select id="tSev">${Object.keys(SEV_RU).map(s=>`<option value="${s}" ${ed&&t.severity===s?'selected':''}>${SEV_RU[s]}</option>`).join('')}</select></div></div>
+    <div style="margin-bottom:16px"><label>Название техники</label><input id="tTech" value="${ed?esc(t.mitre_name):''}"></div>
+    <div class="bar" style="margin:0"><button class="btn" id="tSave">Сохранить</button><button class="btn ghost sm" id="tCancel">Отмена</button></div></div>`;
+  document.body.appendChild(m);
+  const close=()=>m.remove();m.onclick=e=>{if(e.target===m)close();};$('#tCancel').onclick=close;
+  $('#tSave').onclick=async()=>{const name=$('#tName').value.trim();if(!name)return toast('Название обязательно',1);
+    const key=ed?t.key:(name.toLowerCase().replace(/[^a-zа-я0-9]+/gi,'_').slice(0,24)||gid());
+    await idbPut('types',{key,name,mitre:$('#tMitre').value.trim()||'—',mitre_name:$('#tTech').value.trim(),severity:$('#tSev').value});
+    await refresh();close();renderTypes();toast('Сохранено');};}
+
+/* ===== SLA ===== */
+function renderSla(){const stages=[['ack','Взятие в работу (MTTA)'],['isolate','Изоляция хоста']];const sev=['critical','high','medium','low'];
+  $('#slaBody').innerHTML=stages.map(([sk,sn])=>`<tr><td style="color:#fff">${sn}</td>${sev.map(s=>`<td><input type="number" step="1" data-sk="${sk}" data-sv="${s}" value="${STATE.sla[sk][s]}"></td>`).join('')}</tr>`).join('');}
+$('#saveSla').onclick=async()=>{const sla=JSON.parse(JSON.stringify(STATE.sla));
+  $('#slaBody').querySelectorAll('input[data-sk]').forEach(i=>{sla[i.dataset.sk][i.dataset.sv]=+i.value;});
+  await idbPut('settings',{key:'sla',value:sla});await refresh();toast('Пороги сохранены');};
+$('#resetSla').onclick=async()=>{await idbPut('settings',{key:'sla',value:DEFAULT_SLA});await refresh();renderSla();toast('Сброшено');};
+
+/* ===== export/import ===== */
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();}
+function exportJson(){download('soc-incidents-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({version:'3.0',exported:new Date().toISOString(),incidents:STATE.incidents,types:STATE.types,sla:STATE.sla},null,2),'application/json');}
+function exportCsv(){
+  const dcols=TIME_METRICS.map(t=>t.key);
+  const head=['id','detected','type','mitre','mitre_name','severity','source','verdict','reopened','rca',...TS,...dcols.map(d=>d+'_min'),'note'];
+  const rows=STATE.incidents.map(i=>{const t=TYPE_BY[i.type]||{};const base=[i.id,(i.ts&&i.ts.detected)||'',t.name||i.type,t.mitre||'',t.mitre_name||'',i.severity,i.source,i.verdict,i.reopened?1:0,i.rca?1:0,...TS.map(k=>(i.ts&&i.ts[k])||'')];
+    const durs=TIME_METRICS.map(tm=>{const d=diffMin(i.ts&&i.ts[tm.from],i.ts&&i.ts[tm.to]);return d==null?'':Math.round(d);});
+    return [...base,...durs,i.note||''].map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',');});
+  download('soc-incidents-'+new Date().toISOString().slice(0,10)+'.csv',head.join(',')+'\n'+rows.join('\n'),'text/csv');}
+$('#expJson').onclick=exportJson;$('#expCsv').onclick=exportCsv;
+$('#backupBtn').onclick=()=>{const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(4,7,10,.78);backdrop-filter:blur(4px)';
+  m.innerHTML=`<div style="background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--green);border-radius:12px;padding:24px;width:100%;max-width:440px">
+    <h3 style="font-size:20px;margin-bottom:6px">Бэкап</h3><div class="hint" style="margin:0 0 14px">Экспорт для резерва/переноса; импорт заменяет данные</div>
+    <div class="bar" style="margin-bottom:10px"><button class="btn" id="bJ">Экспорт JSON</button><button class="btn ghost" id="bC">Экспорт CSV</button></div>
+    <div class="box warn" style="margin:0 0 14px"><span class="lbl">Импорт</span>JSON <b>заменит</b> инциденты, типы и пороги.</div>
+    <div class="bar" style="margin:0"><button class="btn ghost" id="bI">Импорт JSON…</button><button class="btn ghost sm" id="bX">Закрыть</button></div></div>`;
+  document.body.appendChild(m);const close=()=>m.remove();m.onclick=e=>{if(e.target===m)close();};
+  $('#bJ').onclick=exportJson;$('#bC').onclick=exportCsv;$('#bX').onclick=close;$('#bI').onclick=()=>$('#importFile').click();window._closeBk=close;};
+$('#importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  try{const d=JSON.parse(await f.text());if(!Array.isArray(d.incidents))throw new Error('нет incidents');
+    if(!confirm('Заменить все текущие данные?'))return;
+    await Promise.all([idbClear('incidents'),idbClear('types')]);
+    for(const t of(d.types||DEFAULT_TYPES))await idbPut('types',t);
+    for(const i of d.incidents)await idbPut('incidents',{...i,id:i.id||gid(),ts:i.ts||{}});
+    if(d.sla)await idbPut('settings',{key:'sla',value:d.sla});
+    await refresh();if(window._closeBk)window._closeBk();go('dash');toast('Импортировано');
+  }catch(err){toast('Ошибка импорта: '+err.message,1);}finally{e.target.value='';}};
+</script>
+</body>
+</html>
